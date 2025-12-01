@@ -1,7 +1,8 @@
 import numpy as np
-from sequence import generate_candidates, local_search, compute_score
+from sequence import generate_candidates, local_search
 from scipy.optimize import minimize
-from utils import compute_mfe, compute_cai
+from utils import compute_mfe, compute_cai,compute_score
+
 def optimize_method_a(initial_sequence, lambda_value, max_iterations):
     """
     随机 + 贪婪搜索（局部优化）优化RNA序列。
@@ -94,8 +95,7 @@ def optimize_method_b(initial_sequence, lambda_value, max_iterations):
     return optimized_sequence
 
 
-from sequence import generate_candidates_with_heuristics, continuous_optimization, local_search_with_mutation, compute_score
-
+from sequence import generate_candidates_with_heuristics, continuous_optimization, local_search_with_mutation
 
 def optimize_method_c(initial_sequence, lambda_value, max_iterations):
     """

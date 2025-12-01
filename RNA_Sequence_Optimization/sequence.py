@@ -150,3 +150,40 @@ def local_search_with_mutation(sequence):
     
     optimized_sequence = sequence[:random_index] + new_codon + sequence[random_index+3:]
     return optimized_sequence
+
+def generate_candidates_with_heuristics(sequence, num_candidates=10, preferred_codons=None):
+    """
+    生成多个候选RNA序列，通过同义密码子替换生成新序列，同时考虑目标蛋白的密码子偏好。
+    
+    参数:
+    - sequence: 初始RNA序列
+    - num_candidates: 生成候选序列的数量
+    - preferred_codons: 目标蛋白的密码子偏好字典（可选）
+    
+    返回:
+    - candidates: 生成的候选序列列表
+    """
+    candidates = []
+    
+    # 如果没有提供密码子偏好，则默认使用随机同义密码子替换
+    if preferred_codons is None:
+        preferred_codons = SYNONYMOUS_CODONS
+    
+    for _ in range(num_candidates):
+        candidate = []
+        
+        # 遍历RNA序列，进行同义密码子替换
+        for i in range(0, len(sequence), 3):
+            codon = sequence[i:i+3]
+            amino_acid = get_amino_acid(codon)
+            
+            # 选择偏好密码子，优先选择目标蛋白的密码子
+            if amino_acid in preferred_codons:
+                candidate.append(random.choice(preferred_codons[amino_acid]))
+            else:
+                candidate.append(replace_with_synonymous_codon(codon))
+        
+        # 将候选序列添加到列表中
+        candidates.append(''.join(candidate))
+    
+    return candidates
