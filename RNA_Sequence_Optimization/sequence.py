@@ -1,5 +1,6 @@
 import random
 import numpy as np
+from utils import compute_cai,compute_mfe
 
 # 定义常见的同义密码子映射
 SYNONYMOUS_CODONS = {
@@ -29,7 +30,7 @@ SYNONYMOUS_CODONS = {
 # 1. 同义密码子替换：从同义密码子集合中随机选择一个密码子
 def replace_with_synonymous_codon(codon):
     """
-    替换RNA中的密码子为同义密码子。
+    替换RNA中的密码子为同义密码子（确保替换后的密码子与原密码子编码相同的氨基酸）。
     
     参数:
     - codon: 要替换的RNA密码子
@@ -37,8 +38,10 @@ def replace_with_synonymous_codon(codon):
     返回:
     - 替换后的同义密码子
     """
-    amino_acid = get_amino_acid(codon)
-    return random.choice(SYNONYMOUS_CODONS[amino_acid])
+    amino_acid = get_amino_acid(codon)  # 获取原密码子的氨基酸
+    if amino_acid == '*':
+        return codon  # 如果是终止密码子，则返回原密码子
+    return random.choice(SYNONYMOUS_CODONS[amino_acid])  # 从同义密码子中随机选择一个
 
 # 2. 获取密码子对应的氨基酸
 def get_amino_acid(codon):
@@ -115,19 +118,59 @@ def local_search(sequence):
     return optimized_sequence
 
 # 5. 连续优化：优化RNA序列的连续表示
+import numpy as np
+from scipy.optimize import minimize
+
 def continuous_optimization(sequence, lambda_value):
     """
-    对RNA序列进行连续优化，这里使用一个简化的优化方法。
+    对RNA序列进行连续优化，基于目标函数和约束条件进行优化。
+    
     参数：
     - sequence: RNA序列
     - lambda_value: MFE与CAI的权重系数
+    
     返回：
-    - 优化后的序列参数
+    - optimized_params: 优化后的序列参数
     """
-    # 简化的优化方式，这里我们使用简单的GA或模拟退火来进行优化
-    # 实际上，应该基于目标函数和约束条件进行优化
-    optimized_params = np.random.rand(len(sequence))  # 示例：使用随机生成的连续值表示优化结果
+    
+    # 将RNA序列转换为连续参数表示
+    initial_params = encode_sequence_as_continuous(sequence)
+    
+    # 定义目标函数
+    def objective_function(params):
+        # 将连续参数转换为RNA序列
+        rna_sequence = discretize_to_sequence(params, sequence)
+        
+        # 计算MFE和CAI
+        mfe = compute_mfe(rna_sequence)
+        cai = compute_cai(rna_sequence)
+        
+        # 目标函数: λ * MFE + (1 - λ) * CAI
+        return lambda_value * mfe + (1 - lambda_value) * cai
+
+    # 约束条件：可以定义多个约束，示例中限制GC含量在0.4到0.6之间
+    def constraint_gc_content(params):
+        # 将连续参数转换为RNA序列
+        rna_sequence = discretize_to_sequence(params, sequence)
+        
+        # 计算GC含量
+        gc_content = (rna_sequence.count('G') + rna_sequence.count('C')) / len(rna_sequence)
+        
+        # 约束：GC含量应该在0.4到0.6之间
+        return gc_content - 0.5  # 例如，要求GC含量尽量接近0.5
+    
+    # 设置约束条件，要求GC含量在0.4到0.6之间
+    constraints = [{'type': 'ineq', 'fun': constraint_gc_content}]
+    
+    # 使用约束优化方法（例如使用信赖域牛顿法 'trust-constr'）
+    result = minimize(objective_function, initial_params, method='trust-constr', constraints=constraints, options={'maxiter': 100})
+    
+    # 获取优化后的参数
+    optimized_params = result.x
+    
+    # 返回优化后的序列参数
     return optimized_params
+
 
 # 6. 局部搜索与突变：结合局部搜索和突变进一步优化
 def local_search_with_mutation(sequence):
@@ -187,3 +230,101 @@ def generate_candidates_with_heuristics(sequence, num_candidates=10, preferred_c
         candidates.append(''.join(candidate))
     
     return candidates
+
+def encode_sequence_as_continuous(sequence):
+    """
+    将RNA序列转换为连续参数。每个密码子通过映射到[0, 1]区间的数字表示。
+    
+    参数:
+    - sequence: RNA序列字符串
+    
+    返回:
+    - 连续参数表示的数组
+    """
+    # 将RNA序列按每3个碱基分割为密码子
+    codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
+    
+    # 获取所有独特的密码子
+    codon_set = sorted(set(codons))
+    
+    # 创建一个字典，将密码子映射到[0, 1]区间的数字
+    codon_to_num = {codon: i / len(codon_set) for i, codon in enumerate(codon_set)}
+    
+    # 将RNA序列中的每个密码子转换为连续数值
+    continuous_params = np.array([codon_to_num[codon] for codon in codons])
+    
+    return continuous_params
+
+def discretize_to_sequence(continuous_params, original_sequence):
+    """
+    将连续参数离散化为RNA序列，确保映射回的密码子与原密码子同义。
+    
+    参数:
+    - continuous_params: 优化后的连续参数数组
+    - original_sequence: 原始RNA序列（用于确保同义密码子一致）
+    
+    返回:
+    - 离散化的RNA序列字符串
+    """
+    # 将原始序列分割为密码子
+    original_codons = [original_sequence[i:i+3] for i in range(0, len(original_sequence), 3)]
+    
+    # 获取密码子集
+    codon_set = sorted(SYNONYMOUS_CODONS.keys())  # 获取氨基酸字母代码
+    
+    # 创建一个字典将每个氨基酸映射到它的同义密码子
+    amino_acid_to_codons = {amino_acid: SYNONYMOUS_CODONS[amino_acid] for amino_acid in codon_set}
+    
+    # 将连续参数映射为最接近的密码子
+    codons = []
+    for i, param in enumerate(continuous_params):
+        # 获取原始密码子的氨基酸
+        original_codon = original_codons[i]
+        amino_acid = get_amino_acid(original_codon)  # 获取该密码子对应的氨基酸
+        
+        # 从同义密码子中选择一个
+        possible_codons = amino_acid_to_codons[amino_acid]
+        codons.append(random.choice(possible_codons))  # 随机选择一个同义密码子
+    
+    # 拼接密码子为RNA序列
+    return ''.join(codons)
+
+def mutation(sequence):
+    """
+    随机突变RNA序列中的一个密码子（仅同义替换）。
+    
+    参数:
+    - sequence: RNA序列
+    
+    返回:
+    - new_sequence: 进行突变后的新RNA序列
+    """
+    # 随机选择一个密码子位置进行替换
+    idx = random.randint(0, len(sequence) // 3 - 1) * 3
+    codon = sequence[idx:idx+3]
+    new_codon = replace_with_synonymous_codon(codon)
+    
+    new_sequence = sequence[:idx] + new_codon + sequence[idx+3:]
+    return new_sequence
+
+def codon_swap(sequence):
+    """
+    随机交换RNA序列中的两个密码子的位置（仅交换同义密码子）。
+    
+    参数:
+    - sequence: RNA序列
+    
+    返回:
+    - new_sequence: 交换密码子位置后的新RNA序列
+    """
+    codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
+    
+    # 随机选择两个密码子交换
+    idx1, idx2 = random.sample(range(len(codons)), 2)
+    
+    # 确保交换的密码子是同义密码子
+    codons[idx1], codons[idx2] = codons[idx2], codons[idx1]
+    
+    # 生成新的序列
+    new_sequence = ''.join(codons)
+    return new_sequence

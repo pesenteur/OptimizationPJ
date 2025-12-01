@@ -32,8 +32,16 @@ def main():
         optimized_sequence = optimize_method_b(initial_sequence, args.lambda_value, args.iterations)
     
     elif args.method == 'C':
-        print("开始方法C: 混合启发式优化 + 连续优化 + 局部搜索")
-        optimized_sequence = optimize_method_c(initial_sequence, args.lambda_value, args.iterations)
+        print("开始方法C: 模拟退火")
+        # 定义参数
+        lambda_value = 0.5  # MFE和CAI的权重系数
+        max_iterations = 1000  # 最大迭代次数
+        initial_temperature = 1000  # 初始温度
+        cooling_rate = 0.99  # 温度衰减率
+
+        # 调用模拟退火优化方法
+        optimized_sequence = optimize_method_c(initial_sequence, lambda_value, max_iterations, initial_temperature, cooling_rate)
+
 
     # 4. 计算优化后的序列的目标函数得分
     final_score = compute_score(optimized_sequence,args.lambda_value)
