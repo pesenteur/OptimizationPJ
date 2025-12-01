@@ -2,6 +2,47 @@ import numpy as np
 from Bio import SeqIO
 from scipy.optimize import minimize
 
+human_codon_usage = {
+    'AAA': 0.054, 'AAC': 0.137, 'AAG': 0.067, 'AAU': 0.091,
+    'ACA': 0.140, 'ACC': 0.133, 'ACG': 0.085, 'ACU': 0.094,
+    'AGA': 0.058, 'AGC': 0.122, 'AGG': 0.059, 'AGU': 0.072,
+    'AUA': 0.030, 'AUC': 0.105, 'AUG': 0.160, 'AUU': 0.155,
+    'CAA': 0.075, 'CAC': 0.114, 'CAG': 0.073, 'CAU': 0.084,
+    'CCA': 0.141, 'CCC': 0.125, 'CCG': 0.097, 'CCU': 0.107,
+    'CGA': 0.025, 'CGC': 0.060, 'CGG': 0.025, 'CGU': 0.034,
+    'CUA': 0.064, 'CUC': 0.120, 'CUG': 0.091, 'CUU': 0.089,
+    'GAA': 0.084, 'GAC': 0.144, 'GAG': 0.084, 'GAU': 0.106,
+    'GCA': 0.130, 'GCC': 0.151, 'GCG': 0.058, 'GCU': 0.078,
+    'GGA': 0.057, 'GGC': 0.092, 'GGG': 0.062, 'GGU': 0.082,
+    'GUA': 0.075, 'GUC': 0.126, 'GUG': 0.085, 'GUU': 0.090,
+    'UAA': 0.008, 'UAC': 0.124, 'UAG': 0.005, 'UAU': 0.102,
+    'UCA': 0.103, 'UCC': 0.137, 'UCG': 0.044, 'UCU': 0.089,
+    'UGA': 0.003, 'UGC': 0.085, 'UGG': 0.146, 'UGU': 0.115,
+    'UUA': 0.038, 'UUC': 0.097, 'UUG': 0.042, 'UUU': 0.126
+}
+
+
+def compute_cai(sequence):
+    """
+    计算给定RNA序列的CAI，使用人类的密码子使用频率表。
+    """
+    codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
+    cai_values = []
+
+    for codon in codons:
+        if codon in human_codon_usage:
+            max_usage = max(human_codon_usage.values())
+            cai_values.append(human_codon_usage[codon] / max_usage)
+    
+    # 计算 CAI: 几何平均
+    if len(cai_values) > 0:
+        cai = np.prod(cai_values) ** (1 / len(cai_values))
+        return cai
+    else:
+        return 0.0
+
+
+
 def compute_mfe(sequence):
     """
     计算RNA序列的最小自由能(MFE)。
