@@ -59,22 +59,22 @@ def compute_mfe(sequence):
     mfe = -gc_content  # 这里只是一个示例计算方法，实际情况需要更复杂的计算
     return mfe
 
-def compute_cai(sequence):
-    """
-    计算RNA序列的密码子适应性指数(CAI)。
-    这里假设我们有一个CAI计算的方法，实际情况应依赖于密码子使用数据库。
+# def compute_cai(sequence):
+#     """
+#     计算RNA序列的密码子适应性指数(CAI)。
+#     这里假设我们有一个CAI计算的方法，实际情况应依赖于密码子使用数据库。
 
-    参数:
-    - sequence: RNA序列字符串
+#     参数:
+#     - sequence: RNA序列字符串
 
-    返回:
-    - CAI值
-    """
-    # 假设的CAI计算：此处可以根据密码子的出现频率和特定物种的数据库进行计算
-    # 简化为密码子种类的比例，实际应用需要根据具体的蛋白质数据库进行计算
-    unique_codons = set([sequence[i:i+3] for i in range(0, len(sequence), 3)])
-    cai = len(unique_codons) / (len(sequence) // 3)  # 假设CAI与密码子种类数的关系
-    return cai
+#     返回:
+#     - CAI值
+#     """
+#     # 假设的CAI计算：此处可以根据密码子的出现频率和特定物种的数据库进行计算
+#     # 简化为密码子种类的比例，实际应用需要根据具体的蛋白质数据库进行计算
+#     unique_codons = set([sequence[i:i+3] for i in range(0, len(sequence), 3)])
+#     cai = len(unique_codons) / (len(sequence) // 3)  # 假设CAI与密码子种类数的关系
+#     return cai
 
 def compute_score(sequence, lambda_value):
     """

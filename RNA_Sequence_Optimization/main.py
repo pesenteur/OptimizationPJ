@@ -35,7 +35,7 @@ def main():
         print("开始方法C: 模拟退火")
         # 定义参数
         lambda_value = 0.5  # MFE和CAI的权重系数
-        max_iterations = 1000  # 最大迭代次数
+        max_iterations = 10000  # 最大迭代次数
         initial_temperature = 1000  # 初始温度
         cooling_rate = 0.99  # 温度衰减率
 

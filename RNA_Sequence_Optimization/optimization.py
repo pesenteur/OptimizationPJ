@@ -46,9 +46,9 @@ def optimize_method_a(initial_sequence, lambda_value, max_iterations):
             current_best_score = compute_score(current_best_sequence, lambda_value)
         
         # 5. 停止准则：当目标函数收敛时停止
-        if iteration > 1 and abs(previous_best_score - current_best_score) < 1e-6:
-            print(f"收敛，停止迭代（迭代次数：{iteration}）")
-            break
+        # if iteration > 1 and abs(previous_best_score - current_best_score) < 1e-10:
+        #     print(f"收敛，停止迭代（迭代次数：{iteration}）")
+        #     break
         
         previous_best_score = current_best_score
     
