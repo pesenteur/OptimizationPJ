@@ -81,22 +81,64 @@ def get_amino_acid(codon):
     return codon_table.get(codon, '*')  # 返回氨基酸的1个字母代码
 
 # 3. 同义密码子替换生成候选序列
-def generate_candidates(sequence, num_candidates=10):
+def generate_candidates(sequence, num_candidates=10, max_mutations=3, protect_ends=True):
     """
-    生成多个候选RNA序列，通过同义密码子替换生成新序列。
-    
+    生成多个候选RNA序列：每个候选只随机替换少量密码子（同义替换，保证氨基酸不变）。
+
     参数:
     - sequence: 初始RNA序列
-    - num_candidates: 生成候选序列的数量
-    
+    - num_candidates: 候选数量
+    - max_mutations: 每条候选最多替换多少个密码子（建议 1~3）
+    - protect_ends: 是否保护起始密码子和末尾终止密码子（若存在）
+
     返回:
-    - candidates: 生成的候选序列列表
+    - candidates: 候选序列列表
     """
+    codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
+    n = len(codons)
+
+    # 可变位置：同义集合大小>1，且（可选）不动起始/终止
+    mutable_positions = []
+    for i, c in enumerate(codons):
+        aa = get_amino_acid(c)
+        syn_list = SYNONYMOUS_CODONS.get(aa, [c])
+
+        if len(syn_list) <= 1:
+            continue
+
+        if protect_ends:
+            if i == 0:  # 起始位点通常是 AUG（本身也只有一个）
+                continue
+            if i == n - 1 and aa == '*':  # 末尾终止密码子不动
+                continue
+
+        mutable_positions.append(i)
+
+    # 如果没有可变位置，返回原序列的拷贝
+    if not mutable_positions:
+        return [sequence for _ in range(num_candidates)]
+
     candidates = []
     for _ in range(num_candidates):
-        candidate = ''.join([replace_with_synonymous_codon(sequence[i:i+3]) if i % 3 == 0 else sequence[i:i+3] for i in range(0, len(sequence), 3)])
-        candidates.append(candidate)
+        new_codons = codons.copy()
+
+        k = random.randint(1, min(max_mutations, len(mutable_positions)))
+        positions = random.sample(mutable_positions, k)
+
+        for pos in positions:
+            old = new_codons[pos]
+            aa = get_amino_acid(old)
+            syn_list = SYNONYMOUS_CODONS[aa]
+
+            # 尽量选一个不同于原来的同义密码子
+            if len(syn_list) > 1:
+                choices = [x for x in syn_list if x != old]
+                new_codons[pos] = random.choice(choices) if choices else old
+
+        candidates.append(''.join(new_codons))
+
     return candidates
+
 
 # 4. 局部搜索：通过小范围变动优化RNA序列
 def local_search(sequence):

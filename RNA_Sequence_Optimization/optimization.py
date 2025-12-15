@@ -4,6 +4,42 @@ from scipy.optimize import minimize
 from utils import compute_mfe, compute_cai,compute_score
 from sequence import encode_sequence_as_continuous,discretize_to_sequence
 
+
+def local_search_A(sequence, lambda_value=None, current_score=None, accept_if_improves=False):
+    """
+    局部扰动：随机选择一个密码子做同义替换。
+    - 默认：只做扰动并返回（适合模拟退火/扰动算子）
+    - 若 accept_if_improves=True：只有当新序列 score 更优才接受（适合贪心/爬山）
+
+    参数:
+    - sequence: RNA序列
+    - lambda_value/current_score: 开启接受规则时必须提供
+    - accept_if_improves: 是否启用“只接受更优”
+
+    返回:
+    - new_sequence 或原 sequence
+    """
+    from utils import compute_score  # 避免循环引用风险
+
+    # 选择一个密码子位置扰动
+    idx = random.randint(0, len(sequence)//3 - 1) * 3
+    old_codon = sequence[idx:idx+3]
+    new_codon = replace_with_synonymous_codon(old_codon)
+
+    new_sequence = sequence[:idx] + new_codon + sequence[idx+3:]
+
+    # 不启用接受规则：直接返回扰动结果（给 SA 用）
+    if not accept_if_improves:
+        return new_sequence
+
+    # 启用接受规则：只接受更优
+    if lambda_value is None or current_score is None:
+        raise ValueError("accept_if_improves=True 时，需要提供 lambda_value 和 current_score")
+
+    new_score = compute_score(new_sequence, lambda_value)
+    return new_sequence if new_score < current_score else sequence
+
+
 def optimize_method_a(initial_sequence, lambda_value, max_iterations):
     """
     随机 + 贪婪搜索（局部优化）优化RNA序列。
@@ -42,7 +78,13 @@ def optimize_method_a(initial_sequence, lambda_value, max_iterations):
             current_best_score = best_candidate_score
 
             # 4. 局部优化：对选中的最优序列进行局部优化
-            current_best_sequence = local_search(current_best_sequence)
+            # 4. 局部优化：只在更优时才接受
+            current_best_sequence = local_search_A(
+                current_best_sequence,
+                lambda_value=lambda_value,
+                current_score=current_best_score,
+                accept_if_improves=True
+            )
             current_best_score = compute_score(current_best_sequence, lambda_value)
         
         # 5. 停止准则：当目标函数收敛时停止
@@ -88,7 +130,6 @@ def optimize_method_b(initial_sequence, lambda_value, max_iterations):
     
     # 6. 计算优化后的RNA序列的目标函数值
     final_score = compute_score(optimized_sequence, lambda_value)
-    print(f"优化后的序列得分: {final_score}")
     
     return optimized_sequence
 
