@@ -118,36 +118,4 @@ def save_results(sequence, file_path):
         file.write(">Optimized RNA Sequence\n")
         file.write(sequence)
 
-def encode_sequence_as_continuous(sequence):
-    """
-    将RNA序列编码为连续变量（例如基于密码子频率的表示）。
-    
-    参数:
-    - sequence: RNA序列字符串
-    
-    返回:
-    - 连续参数（这里以简单的例子表示）
-    """
-    # 假设每个密码子对应一个数字表示（实际应使用更复杂的编码方式）
-    codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
-    codon_set = sorted(set(codons))
-    codon_to_num = {codon: i / len(codon_set) for i, codon in enumerate(codon_set)}
-    
-    return np.array([codon_to_num[codon] for codon in codons])
 
-def discretize_to_sequence(continuous_params):
-    """
-    将连续参数离散化为RNA序列（根据优化得到的参数生成密码子序列）。
-    
-    参数:
-    - continuous_params: 连续优化后的参数
-    
-    返回:
-    - 离散化的RNA序列字符串
-    """
-    # 假设我们用每个数字对应的密码子来重建序列
-    codon_set = ['AUG', 'GCC', 'AUU', 'GUA', 'GCG', 'UAG']  # 示例密码子集
-    num_to_codon = {i / len(codon_set): codon for i, codon in enumerate(codon_set)}
-    
-    codons = [num_to_codon[param] for param in continuous_params]
-    return ''.join(codons)

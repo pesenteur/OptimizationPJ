@@ -3,6 +3,7 @@ from sequence import generate_candidates, local_search
 from scipy.optimize import minimize
 from utils import compute_mfe, compute_cai,compute_score
 from sequence import encode_sequence_as_continuous,discretize_to_sequence
+from sequence import replace_with_synonymous_codon
 
 
 def local_search_A(sequence, lambda_value=None, current_score=None, accept_if_improves=False):
@@ -120,7 +121,19 @@ def optimize_method_b(initial_sequence, lambda_value, max_iterations):
 
     
     # 3. 使用牛顿法 / 约束牛顿法进行优化
-    result = minimize(objective_function, initial_params, method='trust-constr', options={'maxiter': max_iterations})
+    eps = 1e-12
+    n = len(initial_params)
+    bounds = Bounds(lb=np.zeros(n), ub=(1.0 - eps) * np.ones(n))
+
+    result = minimize(
+        objective_function,
+        initial_params,
+        method="trust-constr",
+        jac="2-point",                 # 显式告诉它用有限差分近似梯度
+        finite_diff_rel_step=1e-2,     # 差分步长设大一点，容易跨过分桶边界
+        bounds=bounds,
+        options={"maxiter": max_iterations, "verbose": 1}
+    )
     
     # 4. 获取优化后的连续参数
     optimized_params = result.x
