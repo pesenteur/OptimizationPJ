@@ -27,24 +27,6 @@ SYNONYMOUS_CODONS = {
     '*': ['UAA', 'UAG', 'UGA']
 }
 
-human_codon_usage = {
-    'AAA': 0.054, 'AAC': 0.137, 'AAG': 0.067, 'AAU': 0.091,
-    'ACA': 0.140, 'ACC': 0.133, 'ACG': 0.085, 'ACU': 0.094,
-    'AGA': 0.058, 'AGC': 0.122, 'AGG': 0.059, 'AGU': 0.072,
-    'AUA': 0.030, 'AUC': 0.105, 'AUG': 0.160, 'AUU': 0.155,
-    'CAA': 0.075, 'CAC': 0.114, 'CAG': 0.073, 'CAU': 0.084,
-    'CCA': 0.141, 'CCC': 0.125, 'CCG': 0.097, 'CCU': 0.107,
-    'CGA': 0.025, 'CGC': 0.060, 'CGG': 0.025, 'CGU': 0.034,
-    'CUA': 0.064, 'CUC': 0.120, 'CUG': 0.091, 'CUU': 0.089,
-    'GAA': 0.084, 'GAC': 0.144, 'GAG': 0.084, 'GAU': 0.106,
-    'GCA': 0.130, 'GCC': 0.151, 'GCG': 0.058, 'GCU': 0.078,
-    'GGA': 0.057, 'GGC': 0.092, 'GGG': 0.062, 'GGU': 0.082,
-    'GUA': 0.075, 'GUC': 0.126, 'GUG': 0.085, 'GUU': 0.090,
-    'UAA': 0.008, 'UAC': 0.124, 'UAG': 0.005, 'UAU': 0.102,
-    'UCA': 0.103, 'UCC': 0.137, 'UCG': 0.044, 'UCU': 0.089,
-    'UGA': 0.003, 'UGC': 0.085, 'UGG': 0.146, 'UGU': 0.115,
-    'UUA': 0.038, 'UUC': 0.097, 'UUG': 0.042, 'UUU': 0.126
-}
 
 # 1. 同义密码子替换：从同义密码子集合中随机选择一个密码子
 def replace_with_synonymous_codon(codon):
@@ -252,61 +234,67 @@ def generate_candidates_with_heuristics(sequence, num_candidates=10, preferred_c
 
 def encode_sequence_as_continuous(sequence):
     """
-    将RNA序列转换为连续参数。每个密码子通过映射到[0, 1]区间的数字表示。
-    
-    参数:
-    - sequence: RNA序列字符串
-    
-    返回:
-    - 连续参数表示的数组
+    将RNA序列转换为连续参数：
+    对每个密码子位点 i，只在该位点对应氨基酸的同义密码子集合内编码，
+    得到 params[i] ∈ [0, 1)。
     """
-    # 将RNA序列按每3个碱基分割为密码子
     codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
-    
-    # 获取所有独特的密码子
-    codon_set = sorted(set(codons))
-    
-    # 创建一个字典，将密码子映射到[0, 1]区间的数字
-    codon_to_num = {codon: i / len(codon_set) for i, codon in enumerate(codon_set)}
-    
-    # 将RNA序列中的每个密码子转换为连续数值
-    continuous_params = np.array([codon_to_num[codon] for codon in codons])
-    
-    return continuous_params
+    params = []
+
+    for codon in codons:
+        aa = get_amino_acid(codon)
+        syn_list = SYNONYMOUS_CODONS.get(aa, [codon])
+
+        # 终止/未知：固定不动
+        if aa == '*' or len(syn_list) == 1:
+            params.append(0.0)
+            continue
+
+        # 在该位点同义集合中的“索引”
+        try:
+            j = syn_list.index(codon)
+        except ValueError:
+            j = 0
+
+        # 映射到 [0,1)：用“区间中心”更稳定
+        m = len(syn_list)
+        params.append((j + 0.5) / m)
+
+    return np.array(params, dtype=float)
 
 def discretize_to_sequence(continuous_params, original_sequence):
     """
-    将连续参数离散化为RNA序列，确保映射回的密码子与原密码子同义。
-    
-    参数:
-    - continuous_params: 优化后的连续参数数组
-    - original_sequence: 原始RNA序列（用于确保同义密码子一致）
-    
-    返回:
-    - 离散化的RNA序列字符串
+    将连续参数离散化为RNA序列（确定性映射）：
+    第 i 个参数只会在 original_sequence 第 i 个密码子对应的同义集合内选取，
+    从而保证翻译出的氨基酸序列不变。
     """
-    # 将原始序列分割为密码子
     original_codons = [original_sequence[i:i+3] for i in range(0, len(original_sequence), 3)]
-    
-    # 获取密码子集
-    codon_set = sorted(SYNONYMOUS_CODONS.keys())  # 获取氨基酸字母代码
-    
-    # 创建一个字典将每个氨基酸映射到它的同义密码子
-    amino_acid_to_codons = {amino_acid: SYNONYMOUS_CODONS[amino_acid] for amino_acid in codon_set}
-    
-    # 将连续参数映射为最接近的密码子
-    codons = []
-    for i, param in enumerate(continuous_params):
-        # 获取原始密码子的氨基酸
-        original_codon = original_codons[i]
-        amino_acid = get_amino_acid(original_codon)  # 获取该密码子对应的氨基酸
-        
-        # 从同义密码子中选择一个
-        possible_codons = amino_acid_to_codons[amino_acid]
-        codons.append(random.choice(possible_codons))  # 随机选择一个同义密码子
-    
-    # 拼接密码子为RNA序列
-    return ''.join(codons)
+    params = np.asarray(continuous_params, dtype=float)
+
+    if len(params) != len(original_codons):
+        raise ValueError(f"Length mismatch: params({len(params)}) vs codons({len(original_codons)})")
+
+    new_codons = []
+    for i, (p, orig_codon) in enumerate(zip(params, original_codons)):
+        aa = get_amino_acid(orig_codon)
+        syn_list = SYNONYMOUS_CODONS.get(aa, [orig_codon])
+
+        # 终止/未知：保持原样（更符合“蛋白不变”）
+        if aa == '*' or len(syn_list) == 1:
+            new_codons.append(orig_codon)
+            continue
+
+        m = len(syn_list)
+        # 把 p 映射到 [0,1)，再映射到 {0,...,m-1}
+        # 关键：确定性（不再 random.choice）
+        p = float(p)
+        p = p - np.floor(p)          # 支持优化器跑出范围：wrap 到 [0,1)
+        idx = int(np.floor(p * m))   # 0..m-1
+        idx = max(0, min(m - 1, idx))
+        new_codons.append(syn_list[idx])
+
+    return ''.join(new_codons)
+
 
 def mutation(sequence):
     """
@@ -328,22 +316,38 @@ def mutation(sequence):
 
 def codon_swap(sequence):
     """
-    随机交换RNA序列中的两个密码子的位置（仅交换同义密码子）。
-    
-    参数:
-    - sequence: RNA序列
-    
-    返回:
-    - new_sequence: 交换密码子位置后的新RNA序列
+    随机交换两个位点的密码子，但仅允许：
+    - 两个位点对应的氨基酸相同（交换后氨基酸序列保持不变）
+    - 默认不动起始密码子(第0位)和末尾终止密码子(最后一位，如果是stop)
     """
     codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
-    
-    # 随机选择两个密码子交换
-    idx1, idx2 = random.sample(range(len(codons)), 2)
-    
-    # 确保交换的密码子是同义密码子
-    codons[idx1], codons[idx2] = codons[idx2], codons[idx1]
-    
-    # 生成新的序列
-    new_sequence = ''.join(codons)
-    return new_sequence
+    n = len(codons)
+    if n < 3:
+        return sequence
+
+    aa_list = [get_amino_acid(c) for c in codons]
+
+    # 候选位点：不动起始位；如果最后是 stop，也不动最后一位
+    start = 1
+    end = n - 1
+    if aa_list[-1] == '*':
+        end = n - 2
+    if end <= start:
+        return sequence
+
+    # 找到“氨基酸相同”的可交换对
+    candidates = []
+    for i in range(start, end + 1):
+        if aa_list[i] == '*':
+            continue
+        for j in range(i + 1, end + 1):
+            if aa_list[i] == aa_list[j]:
+                candidates.append((i, j))
+
+    if not candidates:
+        # 没有可交换对就退化成一次同义替换扰动
+        return local_search(sequence)
+
+    i, j = random.choice(candidates)
+    codons[i], codons[j] = codons[j], codons[i]
+    return ''.join(codons)

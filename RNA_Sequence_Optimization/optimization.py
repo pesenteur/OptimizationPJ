@@ -73,17 +73,9 @@ def optimize_method_b(initial_sequence, lambda_value, max_iterations):
     
     # 2. 定义目标函数
     def objective_function(params):
-        # 将连续参数转换为RNA序列
-        sequence = discretize_to_sequence(params, initial_sequence)  # 映射回RNA序列
-        
-        # 计算MFE
-        mfe = compute_mfe(sequence)
-        
-        # 计算CAI
-        cai = compute_cai(sequence)
-        
-        # 目标函数: λ * MFE + (1 - λ) * CAI
-        return lambda_value * mfe + (1 - lambda_value) * cai
+        sequence = discretize_to_sequence(params, initial_sequence)
+        return compute_score(sequence, lambda_value)
+
     
     # 3. 使用牛顿法 / 约束牛顿法进行优化
     result = minimize(objective_function, initial_params, method='trust-constr', options={'maxiter': max_iterations})
