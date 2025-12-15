@@ -56,7 +56,7 @@ def compute_mfe(sequence):
     """
     # 假设的简单MFE计算：GC含量越高，MFE越小
     gc_content = (sequence.count('G') + sequence.count('C')) / len(sequence)
-    mfe = -gc_content  # 这里只是一个示例计算方法，实际情况需要更复杂的计算
+    mfe = gc_content  # 这里只是一个示例计算方法，实际情况需要更复杂的计算
     return mfe
 
 # def compute_cai(sequence):
@@ -89,7 +89,7 @@ def compute_score(sequence, lambda_value):
     """
     mfe = compute_mfe(sequence)
     cai = compute_cai(sequence)
-    return lambda_value * mfe + (1 - lambda_value) * cai
+    return lambda_value * mfe - (1 - lambda_value) * cai
 
 def load_initial_sequence(file_path):
     """
